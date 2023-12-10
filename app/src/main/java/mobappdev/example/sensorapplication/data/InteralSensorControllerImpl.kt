@@ -30,6 +30,10 @@ private const val LOG_TAG = "Internal Sensor Controller"
 class InternalSensorControllerImpl(
     context: Context
 ): InternalSensorController, SensorEventListener {
+    //
+    private var _currentLinAcc: Triple<Float, Float, Float>? = null
+    //
+
 
     // Expose acceleration to the UI
     private val _currentLinAccUI = MutableStateFlow<Triple<Float, Float, Float>?>(null)
@@ -55,13 +59,44 @@ class InternalSensorControllerImpl(
     private val gyroSensor: Sensor? by lazy {
         sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
     }
+    //
+    private val linAccSensor: Sensor? by lazy {
+        sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+    }
+    //
 
     override fun startImuStream() {
         // Todo: implement
+        if (linAccSensor == null) {
+            Log.e(LOG_TAG, "Accelerometer sensor is not available on this device")
+            return
+        }
+        if (_streamingLinAcc.value) {
+            Log.e(LOG_TAG, "Accelerometer sensor is already streaming")
+            return
+        }
+
+        // Register this class as a listener for gyroscope events
+        sensorManager.registerListener(this, linAccSensor, SensorManager.SENSOR_DELAY_UI)
+
+        // Start a coroutine to update the UI variable on a 2 Hz interval
+        GlobalScope.launch(Dispatchers.Main) {
+            _streamingLinAcc.value = true
+            while (_streamingLinAcc.value) {
+                // Update the UI variable
+                _currentLinAccUI.update { _currentLinAcc }
+                delay(500)
+            }
+        }
     }
 
     override fun stopImuStream() {
         // Todo: implement
+        if (_streamingLinAcc.value) {
+            // Unregister the listener to stop receiving gyroscope events (automatically stops the coroutine as well)
+            sensorManager.unregisterListener(this, linAccSensor)
+            _streamingLinAcc.value = false
+        }
     }
 
     @OptIn(DelicateCoroutinesApi::class)
@@ -92,7 +127,7 @@ class InternalSensorControllerImpl(
 
     override fun stopGyroStream() {
         if (_streamingGyro.value) {
-            // Unregister the listener to stop receiving gyroscope events (automatically stops the coroutine as well
+            // Unregister the listener to stop receiving gyroscope events (automatically stops the coroutine as well)
             sensorManager.unregisterListener(this, gyroSensor)
             _streamingGyro.value = false
         }
