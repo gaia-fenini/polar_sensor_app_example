@@ -132,11 +132,48 @@ class InternalSensorControllerImpl(
             _streamingGyro.value = false
         }
     }
+    @OptIn(DelicateCoroutinesApi::class)
+    override fun startAccStream() {
+        if (linAccSensor == null) {
+            Log.e(LOG_TAG, "Gyroscope sensor is not available on this device")
+            return
+        }
+        if (_streamingLinAcc.value) {
+            Log.e(LOG_TAG, "Gyroscope sensor is already streaming")
+            return
+        }
+
+        // Register this class as a listener for gyroscope events
+        sensorManager.registerListener(this, linAccSensor, SensorManager.SENSOR_DELAY_UI)
+
+        // Start a coroutine to update the UI variable on a 2 Hz interval
+        GlobalScope.launch(Dispatchers.Main) {
+            _streamingLinAcc.value = true
+            while (_streamingLinAcc.value) {
+                // Update the UI variable
+                _currentLinAccUI.update { _currentLinAcc}
+                delay(500)
+            }
+        }
+
+    }
+
+    override fun stopLinAccStream() {
+        if (_streamingLinAcc.value) {
+            // Unregister the listener to stop receiving gyroscope events (automatically stops the coroutine as well)
+            sensorManager.unregisterListener(this, linAccSensor)
+            _streamingLinAcc.value = false
+        }
+    }
 
     override fun onSensorChanged(event: SensorEvent) {
         if (event.sensor.type == Sensor.TYPE_GYROSCOPE) {
             // Extract gyro data (angular speed around X, Y, and Z axes
             _currentGyro = Triple(event.values[0], event.values[1], event.values[2])
+        }
+        else if (event.sensor.type == Sensor.TYPE_ACCELEROMETER) {
+            // Extract gyro data (angular speed around X, Y, and Z axes
+            _currentLinAcc = Triple(event.values[0], event.values[1], event.values[2])
         }
     }
 

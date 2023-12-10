@@ -12,11 +12,17 @@ package mobappdev.example.sensorapplication.domain
 import kotlinx.coroutines.flow.StateFlow
 
 interface PolarController {
-    val currentHR: StateFlow<Int?>
-    val hrList: StateFlow<List<Int>>
 
-    val currentAcc: StateFlow<Triple<Float, Float, Float>?>
-    val accList: StateFlow<List<Triple<Float, Float, Float>>>
+    val scannedDevices: StateFlow<List<BluetoothDevice>>
+
+    val pairedDevices: StateFlow<List<BluetoothDevice>>
+    fun startDiscovery()
+    fun stopDiscovery()
+
+    fun release()
+
+    val currentAcc: StateFlow<Triple<Int, Int, Int>?>
+    val accList: StateFlow<List<Triple<Int, Int, Int>>>
 
     val currentGyro: StateFlow<Triple<Float, Float, Float>?>
     val gyroList: StateFlow<List<Triple<Float, Float, Float>>>
@@ -27,12 +33,10 @@ interface PolarController {
     fun connectToDevice(deviceId: String)
     fun disconnectFromDevice(deviceId: String)
 
-    fun startHrStreaming(deviceId: String)
-    fun stopHrStreaming()
-    fun startAccStreaming(deviceId: String)
-    fun stopAccStreaming()
-    fun startGyroStreaming(deviceId: String)
-    fun stopGyroStreaming()
 
+    //fun startAccStreaming(deviceId: String)
+    fun stopAccStreaming()
+   // fun startGyroStreaming(deviceId: String)
+    fun stopGyroStreaming()
 
 }

@@ -36,7 +36,7 @@ import mobappdev.example.sensorapplication.ui.viewmodels.CombinedSensorData
 import mobappdev.example.sensorapplication.ui.viewmodels.DataVM
 
 @Composable
-fun BluetoothDataScreen(
+fun InternalDataScreen(
     vm: DataVM,navController: NavController
 ) {
     val state = vm.state.collectAsStateWithLifecycle().value
@@ -63,8 +63,8 @@ fun BluetoothDataScreen(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = CenterHorizontally
     ) {
-        Text("Bluetooth")
-        Text(text = if (state.connected) "connected to $deviceId" else "disconnected")
+        Text(text = "Internal Mode")
+        Text(text = if (state.connected) "connected" else "disconnected")
         Box(
             contentAlignment = Center,
             modifier = Modifier.weight(1f)
