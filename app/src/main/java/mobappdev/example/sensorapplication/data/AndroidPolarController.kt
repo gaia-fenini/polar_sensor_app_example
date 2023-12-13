@@ -35,6 +35,7 @@ import mobappdev.example.sensorapplication.domain.PolarController
 import mobappdev.example.sensorapplication.domain.toBluetoothDeviceDomain
 import mobappdev.example.sensorapplication.ui.MainActivity
 import java.util.UUID
+import kotlin.math.abs
 import kotlin.math.pow
 
 @SuppressLint("MissingPermission")
@@ -237,7 +238,8 @@ class AndroidPolarController (
                         + _currentAcc.value!!.first.toDouble().pow(2.0)
             ))* 180 / kotlin.math.PI}
             if(_angleList.value.isNotEmpty()){
-                val newelem = 0.9 * _currentAngle.value!! + 0.1*_angleList.value[lastIndex]
+                val newelem = 0.9 * _currentAngle.value!! + 0.1 * _angleList.value[lastIndex]
+                _currentAngle.update{newelem}
                 _angleList.value = _angleList.value + newelem
             }
             else{
@@ -246,8 +248,8 @@ class AndroidPolarController (
              Log.d("Test","angle: ${currentAngle.value}" )
         }
         else{Log.d("Test", "acc null")}
-
     }
+
     fun computeAngleGyro(){
         if(_currentAcc!=null && _previousGyroAngle!=null){
             val fromAcc = 90 - kotlin.math.atan(
@@ -258,18 +260,12 @@ class AndroidPolarController (
             ) * 180 / kotlin.math.PI
             _currentGyroAngle = _previousGyroAngle!! + _currentGyro.value!!.second * 0.5f - _gyrozero.value
             _currentAngle.update {
-                (0.9 * fromAcc + 0.1 * _currentGyroAngle!!)
+                (0.9 * fromAcc + 0.1 * abs(_currentGyroAngle!!))
             }
-
             _previousGyroAngle = _currentGyroAngle
-
             Log.d("Test","${_currentGyroAngle}")
             _angleList.value = angleList.value + _currentAngle.value!!
-
-            //Log.d("Test","angle from acc:  ${fromAcc}")
-
         }       else{Log.d("Test", "acc null")}
-
     }
 
     override fun startAccStreaming(deviceId: String) {
@@ -299,7 +295,7 @@ class AndroidPolarController (
                                     Log.d(TAG, "update acclist: ${updateListAcc}")
                                     updateListAcc
                                 }
-                                lastIndex = if (_angleList.value!= null) _angleList.value!!.lastIndex else 0
+                                lastIndex = if (_angleList.value!= null) _angleList.value.lastIndex else 0
                                 computeAngle()
                             }
                         },
@@ -308,13 +304,10 @@ class AndroidPolarController (
                         },
                         { Log.d(TAG, "Accelerometer stream complete")}
                     )
-
         } else {
             Log.d(TAG, "Already streaming")
         }
-
     }
-
 
 
     override fun startGyroStreaming(deviceId: String) {
@@ -325,9 +318,6 @@ class AndroidPolarController (
         if(isDisposed) {
             _measuring.update { true }
             Log.d(TAG, "_measuring is true")
-            ///
-
-
             gyroDisposable =
                 mainActivity.requestStreamSettings(deviceId, PolarBleApi.PolarDeviceDataType.GYRO)
                     .flatMap { settings: PolarSensorSetting ->
@@ -357,8 +347,6 @@ class AndroidPolarController (
                         },
                         { Log.d(TAG, "Gyro stream complete, ${_currentGyro.value}")}
                     )
-
-
         } else {
             Log.d(TAG, "Already streaming")
         }

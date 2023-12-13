@@ -173,7 +173,11 @@ class DataVM @Inject constructor(
         //writeCsvFile()
     }
     fun writeCsvFile() {
+        Log.d("Test","preparing to write")
+        Log.d("Test", "list: ${anglesList.value}")
+        Log.d("Test","type: ${streamType}")
         viewModelScope.launch(Dispatchers.IO) {
+            Log.d("Test","writing")
             csvWriter.writeCsv("angles",when (streamType) {StreamType.LOCAL_GYRO , StreamType.LOCAL_ACC -> anglesList.value!!
                 StreamType.FOREIGN_ACC , StreamType.FOREIGN_GYRO-> angleListPolar.value
                 else-> emptyList()

@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import mobappdev.example.sensorapplication.domain.InternalSensorController
 import mobappdev.example.sensorapplication.ui.viewmodels.StreamType
+import kotlin.math.abs
 import kotlin.math.pow
 
 private const val LOG_TAG = "Internal Sensor Controller"
@@ -32,10 +33,8 @@ private const val LOG_TAG = "Internal Sensor Controller"
 class InternalSensorControllerImpl(
     context: Context
 ): InternalSensorController, SensorEventListener {
-    //
-    private var _currentLinAcc: Triple<Float, Float, Float>? = null
-    //
 
+    private var _currentLinAcc: Triple<Float, Float, Float>? = null
 
     // Expose acceleration to the UI
     private val _currentLinAccUI = MutableStateFlow<Triple<Float, Float, Float>?>(null)
@@ -160,7 +159,7 @@ class InternalSensorControllerImpl(
                 val fromGyro = _currentGyroAngle!! * 180 / kotlin.math.PI
 
                 _currentAngleUI.update {
-                    (0.9 * fromAcc + 0.1 * fromGyro)
+                    (0.9 * fromAcc + 0.1 * abs(fromGyro))
                 }
                 _previousGyroAngle = _currentGyroAngle
 
@@ -170,8 +169,6 @@ class InternalSensorControllerImpl(
                 //Log.d("Test","angle from acc:  ${fromAcc}")
 
             }     }  else{ Log.d("Test", "acc null") }
-
-
     }
 
     override fun startImuStream() {
@@ -184,7 +181,6 @@ class InternalSensorControllerImpl(
             Log.e(LOG_TAG, "Accelerometer sensor is already streaming")
             return
         }
-
         // Register this class as a listener for gyroscope events
         sensorManager.registerListener(this, linAccSensor, SensorManager.SENSOR_DELAY_UI)
 
@@ -213,8 +209,8 @@ class InternalSensorControllerImpl(
             if (_angles.value.isNotEmpty())
             {Log.d("Test","${lastIndex}")
                 val newelem = 0.9 * _currentAngleUI.value!! +  0.1 * (_angles.value[lastIndex])
-                _angles.value =
-                    angles.value + newelem}
+                _currentAngleUI.update{ newelem }
+                _angles.value = angles.value + newelem}
             else{_angles.value =
                 angles.value + 0.9 * _currentAngleUI.value!!}
             Log.d("Test","angle: ${currentAngleUI.value}" )
@@ -233,7 +229,6 @@ class InternalSensorControllerImpl(
 
         }
     }
-
 
     override fun stopGyroStream() {
         if (_streamingGyro.value) {

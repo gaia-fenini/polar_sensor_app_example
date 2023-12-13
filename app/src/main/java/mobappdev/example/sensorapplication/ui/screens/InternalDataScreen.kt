@@ -147,6 +147,16 @@ fun InternalDataScreen(
             ) {
                 Text(text = "Stop\nstream")
             }
+            Button(
+                onClick = {(vm::writeCsvFile)()},
+                /*enabled = (state.measuring),*/
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    disabledContainerColor = Color.Gray
+                )
+            ) {
+                Text(text = "Export data")
+            }
         }
     }
 }
