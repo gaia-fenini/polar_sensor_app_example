@@ -9,9 +9,15 @@ package mobappdev.example.sensorapplication.ui.viewmodels
  * Last modified: 2023-07-11
  */
 
+import android.annotation.SuppressLint
+import android.content.Context
+import android.util.Log
+import androidx.compose.runtime.State
+import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -19,9 +25,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import mobappdev.example.sensorapplication.domain.BluetoothDevice
+import mobappdev.example.sensorapplication.domain.CsvWriter
 import mobappdev.example.sensorapplication.domain.InternalSensorController
 import mobappdev.example.sensorapplication.domain.PolarController
+import java.io.FileOutputStream
+import java.io.OutputStream
 import java.lang.Math.atan
 import java.lang.Math.pow
 import java.lang.Math.sqrt
@@ -29,64 +39,71 @@ import javax.inject.Inject
 import kotlin.math.pow
 
 @HiltViewModel
+@SuppressLint("StaticFieldLeak")
 class DataVM @Inject constructor(
     private val polarController: PolarController,
-    private val internalSensorController: InternalSensorController
+    private val internalSensorController: InternalSensorController,
+    private val context: Context
 ): ViewModel() {
 
-    private var streamType: StreamType? = null //spostato
+    private val csvWriter = CsvWriter(context)
+
+    private val _isWriteSuccessful = mutableStateOf(false)
+    val isWriteSuccessful: State<Boolean> get() = _isWriteSuccessful
+
+
+    private var streamType: StreamType? = null
 
     private val accDataFlow = internalSensorController.currentLinAccUI
-    private val gyroDataFlow = internalSensorController.currentGyroUI
+    val gyroDataFlow = internalSensorController.currentGyroUI
+    val angleDataFlow = internalSensorController.currentAngleUI
+    private val anglesList = internalSensorController.angles
 
     //private val accDataFlowPolar = polarController.currentAccUI
     //private val gyroDataFlowPolar = polarController.currentGyroUI
 
-    private val _angle = MutableStateFlow(0f)
-    val angle: StateFlow<Float>
-        get() = _angle.asStateFlow()
+    val angleDataFlowPolar = polarController.currentAngle
+    val angleListPolar = polarController.angleList
 
-    // Combine the two data flows
-   /* val combinedDataFlow= combine(
-        gyroDataFlow,
-        hrDataFlow,
-    ) { gyro, hr ->
-        if (hr != null ) {
-            CombinedSensorData.HrData(hr)
-        } else if (gyro != null) {
-            CombinedSensorData.GyroData(gyro)
-        } else {
-            null
-        }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
-*/
-    val combinedDataFlow= combine(
+    val combinedDataFlow = combine(
         gyroDataFlow,
         accDataFlow,
-    ) { gyro, acc ->
+        angleDataFlow
+    ) { gyro, acc , ang->
         if (acc != null ) {
             CombinedSensorData.AccData(acc)
         } else if (gyro != null) {
             CombinedSensorData.GyroData(gyro)
-        } else {
+        }
+        else if(ang!= null){
+            CombinedSensorData.AngleData(ang)
+        }
+
+        else {
             null
         }
+
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     private val _state = MutableStateFlow(DataUiState())
 
     val state = combine(
-        polarController.pairedDevices,
         polarController.scannedDevices,
-        polarController.accList,
-        polarController.connected,
+        polarController.pairedDevices,
+    //val hrList: List<Int> = emptyList(),
+        polarController.currentAcc,
+        polarController.currentGyro,
+   // polarController.connected,
         _state
-    ) { pairedDevices, scannedDevices, accList, connected, state ->
+    ) { scannedDevices,pairedDevices, currentAcc, currentGyro,/* connected, */ state ->
         state.copy(
-            pairedDevices = pairedDevices,
+
             scannedDevices = scannedDevices,
-            accList = accList,
-            connected = connected,
+            pairedDevices = pairedDevices,
+            currentAcc = currentAcc,
+            currentGyro = currentGyro,
+            //connected = connected,
+
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), _state.value)
 
@@ -109,79 +126,74 @@ class DataVM @Inject constructor(
 
     fun connectToSensor() {
         polarController.connectToDevice(_deviceId.value)
+        _state.update { it.copy(connected = true) }
+
     }
 
     fun disconnectFromSensor() {
         stopDataStream()
         polarController.disconnectFromDevice(_deviceId.value)
+        _state.update { it.copy(connected = false) }
     }
-/*
-    fun startHr() {
-        polarController.startHrStreaming(_deviceId.value)
-        streamType = StreamType.FOREIGN_HR
-        _state.update { it.copy(measuring = true) }
-    }*/
 
     fun startGyroInt() {
-        internalSensorController.startGyroStream()
         streamType = StreamType.LOCAL_GYRO
-
+        internalSensorController.startGyroStream()
         _state.update { it.copy(measuring = true) }
     }
-    /*fun startGyroPolar() {
+    fun startGyroPolar() {
         polarController.startGyroStreaming(_deviceId.value)
-        streamType = StreamType.LOCAL_GYRO
-
+        streamType = StreamType.FOREIGN_GYRO
         _state.update { it.copy(measuring = true) }
-    }*/
+    }
 
-    /*fun startAccPolar() {
+    fun startAccPolar() {
         polarController.startAccStreaming(_deviceId.value)
         streamType = StreamType.FOREIGN_ACC
         _state.update { it.copy(measuring = true) }
-    }*/
+    }
     fun startAccInt() {
-        internalSensorController.startAccStream()
-        streamType = StreamType.FOREIGN_ACC
+        internalSensorController.startImuStream()
+        streamType = StreamType.LOCAL_ACC
         _state.update { it.copy(measuring = true) }
+
     }
 
-
     fun stopDataStream(){
-        when (streamType) {
+         when (streamType) {
             StreamType.LOCAL_GYRO -> internalSensorController.stopGyroStream()
-            StreamType.LOCAL_ACC -> internalSensorController.stopLinAccStream()
+            StreamType.LOCAL_ACC -> internalSensorController.stopImuStream()
             StreamType.FOREIGN_ACC -> polarController.stopAccStreaming()
             StreamType.FOREIGN_GYRO -> polarController.stopGyroStreaming()
             else -> {} // Do nothing
         }
+        //saveAngles()
         _state.update { it.copy(measuring = false) }
+        Log.d("Test","${anglesList.value}")
+        //writeCsvFile()
     }
-
-
-/*
-    fun computeAngleAcc(){
-            if (streamType == StreamType.LOCAL_ACC) {
-
-                _angle.update { atan((accDataFlow.value?.first.pow(2)) / (sqrt(
-                    accDataFlow.value?.second.pow(2) + accDataFlow.value.third.pow(2)))) }
-
-            }
-
+    fun writeCsvFile() {
+        viewModelScope.launch(Dispatchers.IO) {
+            csvWriter.writeCsv("angles",when (streamType) {StreamType.LOCAL_GYRO , StreamType.LOCAL_ACC -> anglesList.value!!
+                StreamType.FOREIGN_ACC , StreamType.FOREIGN_GYRO-> angleListPolar.value
+                else-> emptyList()
+            })
+        }
     }
-*/
 }
 
 
 data class DataUiState(
     val scannedDevices: List<BluetoothDevice> = emptyList(),
     val pairedDevices: List<BluetoothDevice> = emptyList(),
-    val hrList: List<Int> = emptyList(),
-    val accList: List<Triple<Int,Int,Int>> = emptyList(),
-    val gyroList: List<Triple<Int,Int,Int>> = emptyList(),
+    //val hrList: List<Int> = emptyList(),
+    val currentAcc: Triple<Int,Int,Int>? = Triple(0,0,0),
+    val currentGyro: Triple<Float,Float,Float>? = Triple(0f,0f,0f),
+    val angleList: List<Double> = emptyList(),
     val connected: Boolean = false,
-    val measuring: Boolean = false
-)
+    val measuring: Boolean = false,
+    val connecting: Boolean = false
+    )
 
 
 enum class StreamType {
@@ -190,7 +202,8 @@ enum class StreamType {
 
 sealed class CombinedSensorData {
     data class GyroData(val gyro: Triple<Float, Float, Float>?) : CombinedSensorData()
-    data class HrData(val hr: Int?) : CombinedSensorData()
-    data class AccData(val gyro: Triple<Float, Float, Float>?) : CombinedSensorData()
+    //data class HrData(val hr: Int?) : CombinedSensorData()
+    data class AccData(val acc: Triple<Float, Float, Float>?) : CombinedSensorData()
+    data class AngleData(val acc: Double?) : CombinedSensorData()
 
 }

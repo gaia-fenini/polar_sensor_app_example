@@ -35,4 +35,10 @@ object AppModule {
     fun provideInternalSensorController(@ApplicationContext context: Context): InternalSensorController {
         return InternalSensorControllerImpl(context)
     }
+
+    @Provides
+    @Singleton
+    fun provideApplicationContext(@ApplicationContext context: Context): Context {
+        return context
+    }
 }

@@ -14,15 +14,18 @@ import kotlinx.coroutines.flow.StateFlow
 interface InternalSensorController {
     val currentLinAccUI: StateFlow<Triple<Float, Float, Float>?>
     val currentGyroUI: StateFlow<Triple<Float, Float, Float>?>
+    val currentAngleUI: StateFlow<Double?>
     val streamingGyro: StateFlow<Boolean>
     val streamingLinAcc: StateFlow<Boolean>
+
+    val angles : StateFlow<List<Double>?>
 
     fun startImuStream()
     fun stopImuStream()
 
     fun startGyroStream()
     fun stopGyroStream()
-    fun stopLinAccStream()
-    @OptIn(DelicateCoroutinesApi::class)
-    fun startAccStream()
+
+
+    val gyrozero: StateFlow<Float>
 }

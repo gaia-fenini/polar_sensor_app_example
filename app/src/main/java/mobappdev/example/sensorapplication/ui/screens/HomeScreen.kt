@@ -43,7 +43,6 @@ import mobappdev.example.sensorapplication.ui.viewmodels.DataVM
 fun HomeScreen(
     vm: DataVM,
     navController: NavController,
-
 ) {
     val state = vm.state.collectAsStateWithLifecycle().value
     val deviceId = vm.deviceId.collectAsStateWithLifecycle().value
@@ -58,8 +57,15 @@ fun HomeScreen(
             }
 
         }
-        is CombinedSensorData.HrData -> combinedSensorData.hr.toString()
-        else -> "-"
+        is CombinedSensorData.AccData -> {
+            val triple = combinedSensorData.acc
+            if (triple == null) {
+                "-"
+            } else {
+                String.format("%.1f, %.1f, %.1f", triple.first, triple.second, triple.third)
+            }
+
+        }        else -> "-"
     }
 
     Column(
@@ -128,7 +134,7 @@ fun HomeScreen(
                             if (device.name!=null && device.name.contains("Polar")) {
                                 Text(text = device.name,
                                     modifier = Modifier.clickable { (vm::chooseSensor)(device.name.substring(12,20));
-                                                 navController.navigate("BluetoothDataScreen")
+                                                 navController.navigate("bluetooth")
                                     })
                             }
 

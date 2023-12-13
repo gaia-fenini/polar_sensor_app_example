@@ -36,24 +36,41 @@ import mobappdev.example.sensorapplication.ui.viewmodels.CombinedSensorData
 import mobappdev.example.sensorapplication.ui.viewmodels.DataVM
 
 @Composable
-fun InternalDataScreen(
-    vm: DataVM,navController: NavController
-) {
-    val state = vm.state.collectAsStateWithLifecycle().value
-    val deviceId = vm.deviceId.collectAsStateWithLifecycle().value
 
-    val value: String = when (val combinedSensorData = vm.combinedDataFlow.collectAsState().value) {
+fun InternalDataScreen(
+    vm: DataVM, navController: NavController
+) {
+    //val state = vm.state.collectAsStateWithLifecycle().value
+    val deviceId = vm.deviceId.collectAsStateWithLifecycle().value
+    val combinedSensorData = vm.combinedDataFlow.collectAsState().value
+    val angles = vm.angleDataFlow.collectAsState().value
+    val gyro = vm.gyroDataFlow.collectAsState().value
+    var valueGyro: String = ""
+    if( gyro!=null ) {
+        valueGyro=
+            String.format("Gyro:%.1f, %.1f, %.1f", gyro.first, gyro.second, gyro.third)
+    }
+
+    val value: String = when (combinedSensorData) {
+
         is CombinedSensorData.GyroData -> {
             val triple = combinedSensorData.gyro
             if (triple == null) {
                 "-"
             } else {
-                String.format("%.1f, %.1f, %.1f", triple.first, triple.second, triple.third)
+                String.format("Gyro:%.1f, %.1f, %.1f", triple.first, triple.second, triple.third)
             }
-
         }
-        is CombinedSensorData.HrData -> combinedSensorData.hr.toString()
-        else -> "-"
+
+        is CombinedSensorData.AccData -> {
+            val triple = combinedSensorData.acc
+            if (triple == null) {
+                "-"
+            } else {
+                String.format("Acc:%.1f, %.1f, %.1f", triple.first, triple.second, triple.third)
+            }
+        }
+         else -> "-"
     }
 
     Column(
@@ -64,43 +81,29 @@ fun InternalDataScreen(
         horizontalAlignment = CenterHorizontally
     ) {
         Text(text = "Internal Mode")
-        Text(text = if (state.connected) "connected" else "disconnected")
         Box(
             contentAlignment = Center,
             modifier = Modifier.weight(1f)
         ) {
-            Text(
-                text = if(state.measuring) value else "-",
-                fontSize = if (value.length < 3) 128.sp else 54.sp,
-                color = Color.Black,
-            )
-        }
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceAround,
-            modifier = Modifier.fillMaxWidth()
-        ){
-            Button(
-                onClick = vm::connectToSensor,
-                enabled = !state.connected,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    disabledContainerColor = Color.Gray
+            Column {
+                Text(
+                    text = value,
+                    fontSize = if (value.length < 3) 128.sp else 54.sp,
+                    color = Color.Black,
                 )
-            ) {
-                Text(text = "Connect\n${deviceId}")
-            }
-            Button(
-                onClick = vm::disconnectFromSensor,
-                enabled = state.connected,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    disabledContainerColor = Color.Gray
+                Text(
+                    text = valueGyro,
+                    fontSize = if (value.length < 3) 128.sp else 54.sp,
+                    color = Color.Black,
                 )
-            ) {
-                Text(text = "Disconnect")
+
             }
+
         }
+        if(combinedSensorData!=null){
+            Text(text = "Angle: $angles")
+        }
+
         Spacer(modifier = Modifier.height(10.dp))
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -109,17 +112,17 @@ fun InternalDataScreen(
         ){
             Button(
                 onClick = vm::startAccInt,
-                enabled = (state.connected && !state.measuring),
+               /* enabled = (!state.measuring),*/
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     disabledContainerColor = Color.Gray
                 )
             ) {
-                Text(text = "Start\nHr Stream")
+                Text(text = "Start\nAcc Stream")
             }
             Button(
                 onClick = vm::startGyroInt,
-                enabled = (!state.measuring),
+               /* enabled = (!state.measuring),*/
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     disabledContainerColor = Color.Gray
@@ -135,8 +138,8 @@ fun InternalDataScreen(
             modifier = Modifier.fillMaxWidth()
         ){
             Button(
-                onClick = vm::stopDataStream,
-                enabled = (state.measuring),
+                onClick = {(vm::stopDataStream)()},
+                /*enabled = (state.measuring),*/
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     disabledContainerColor = Color.Gray

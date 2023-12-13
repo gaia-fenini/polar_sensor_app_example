@@ -10,6 +10,7 @@ package mobappdev.example.sensorapplication.domain
 
 
 import kotlinx.coroutines.flow.StateFlow
+import java.io.OutputStream
 
 interface PolarController {
 
@@ -28,6 +29,9 @@ interface PolarController {
     val gyroList: StateFlow<List<Triple<Float, Float, Float>>>
 
     val connected: StateFlow<Boolean>
+
+    val connecting: StateFlow<Boolean>
+
     val measuring: StateFlow<Boolean>
 
     fun connectToDevice(deviceId: String)
@@ -39,4 +43,9 @@ interface PolarController {
    // fun startGyroStreaming(deviceId: String)
     fun stopGyroStreaming()
 
+    val angleList: StateFlow<List<Double>>
+    val currentAngle: StateFlow<Double?>
+    val gyrozero: StateFlow<Float>
+    fun startGyroStreaming(deviceId: String)
+    fun startAccStreaming(deviceId: String)
 }
