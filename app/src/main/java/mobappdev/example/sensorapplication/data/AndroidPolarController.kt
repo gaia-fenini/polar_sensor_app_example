@@ -271,6 +271,9 @@ class AndroidPolarController (
     override fun startAccStreaming(deviceId: String) {
         val mainActivity = MainActivity()
         _accList.update { emptyList() }
+        _angleList.update { emptyList() }
+        _currentAcc.update { Triple(0,0,0) }
+        _currentAngle.update { null }
         Log.d(TAG, "Im in the start acc stream ")
         val isDisposed = accDisposable?.isDisposed ?: true
         if(isDisposed) {
@@ -313,6 +316,10 @@ class AndroidPolarController (
     override fun startGyroStreaming(deviceId: String) {
         val mainActivity = MainActivity()
         _gyroList.update { emptyList() }
+        _angleList.update { emptyList() }
+        _currentGyro.update { Triple(0f,0f,0f) }
+        _currentAngle.update {null}
+        _currentAcc.update { Triple(0,0,0) }
         Log.d(TAG, "I'm in the startGyroStreaming in the AndroidPolarController")
         val isDisposed = gyroDisposable?.isDisposed ?: true
         if(isDisposed) {

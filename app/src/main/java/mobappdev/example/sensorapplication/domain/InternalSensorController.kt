@@ -25,7 +25,4 @@ interface InternalSensorController {
 
     fun startGyroStream()
     fun stopGyroStream()
-
-
-    val gyrozero: StateFlow<Float>
 }

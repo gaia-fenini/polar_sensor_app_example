@@ -14,6 +14,7 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.util.Log
+import androidx.lifecycle.LiveData
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
@@ -74,30 +75,27 @@ class InternalSensorControllerImpl(
     private val linAccSensor: Sensor? by lazy {
         sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
     }
-    //
-    private val _gyrozero = MutableStateFlow(0f)
-    override val gyrozero: StateFlow<Float>
-        get() = _gyrozero.asStateFlow()
-
-    //xn
 
 
-
-
-    //y
     private val _angles = MutableStateFlow<List<Double>> (emptyList())
 
     override val angles: StateFlow<List<Double>>
         get() = _angles.asStateFlow()
 
-
-
     var lastIndex = if (_angles.value!= null) _angles.value!!.lastIndex else 0
-
-
 
     @OptIn(DelicateCoroutinesApi::class)
     override fun startGyroStream() {
+
+        _currentAngleUI.update { 0.0 }
+        _angles.update { emptyList() }
+        _currentLinAcc = Triple(1f,1f,1f)
+        _previousGyroAngle = 0f
+        _currentGyroAngle = null
+        _currentGyro = Triple(0f,0f,0f)
+        _currentGyroUI.update { null }
+        _currentLinAccUI.update { null }
+
         if (gyroSensor == null) {
             Log.e(LOG_TAG, "Gyroscope sensor is not available on this device")
             return
@@ -114,6 +112,7 @@ class InternalSensorControllerImpl(
             Log.e(LOG_TAG, "Accelerometer sensor is already streaming")
             return
         }
+
 
         // Register this class as a listener for gyroscope events
         sensorManager.registerListener(this, linAccSensor, SensorManager.SENSOR_DELAY_UI)
@@ -173,6 +172,11 @@ class InternalSensorControllerImpl(
 
     override fun startImuStream() {
         // Todo: implement
+        _currentAngleUI.update { 0.0 }
+        _angles.update { emptyList() }
+        _currentLinAcc = Triple(1f,1f,1f)
+        _currentLinAccUI.update { null }
+
         if (linAccSensor == null) {
             Log.e(LOG_TAG, "Accelerometer sensor is not available on this device")
             return
@@ -182,6 +186,7 @@ class InternalSensorControllerImpl(
             return
         }
         // Register this class as a listener for gyroscope events
+
         sensorManager.registerListener(this, linAccSensor, SensorManager.SENSOR_DELAY_UI)
 
         // Start a coroutine to update the UI variable on a 2 Hz interval
@@ -197,6 +202,7 @@ class InternalSensorControllerImpl(
         }
     }
     fun computeAngle() {
+        Log.d("Test","$_currentLinAcc")
         if(_currentLinAcc!=null && angles!=null){
             _currentAngleUI.update {
                 90 - kotlin.math.atan(
@@ -206,14 +212,17 @@ class InternalSensorControllerImpl(
                     )
                 ) * 180 / kotlin.math.PI
             }
+            Log.d("Test","${_currentAngleUI.value}")
+
             if (_angles.value.isNotEmpty())
             {Log.d("Test","${lastIndex}")
                 val newelem = 0.9 * _currentAngleUI.value!! +  0.1 * (_angles.value[lastIndex])
                 _currentAngleUI.update{ newelem }
                 _angles.value = angles.value + newelem}
-            else{_angles.value =
-                angles.value + 0.9 * _currentAngleUI.value!!}
-            Log.d("Test","angle: ${currentAngleUI.value}" )
+            else{
+                _angles.value =
+                angles.value + _currentAngleUI.value!!}
+            Log.d("Test","angle: ${_currentAngleUI.value}" )
         }
         else{Log.d("Test", "acc null")}
 

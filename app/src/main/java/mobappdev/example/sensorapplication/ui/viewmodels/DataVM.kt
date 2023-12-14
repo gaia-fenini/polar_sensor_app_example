@@ -59,6 +59,7 @@ class DataVM @Inject constructor(
     val angleDataFlow = internalSensorController.currentAngleUI
     private val anglesList = internalSensorController.angles
 
+
     //private val accDataFlowPolar = polarController.currentAccUI
     //private val gyroDataFlowPolar = polarController.currentGyroUI
 
