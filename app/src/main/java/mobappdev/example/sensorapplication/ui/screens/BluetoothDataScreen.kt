@@ -8,6 +8,8 @@ package mobappdev.example.sensorapplication.ui.screens
  * Last modified: 2023-07-11
  */
 
+import android.content.ContentValues.TAG
+import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -25,9 +27,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Alignment.Companion.Center
 import androidx.compose.ui.Alignment.Companion.CenterHorizontally
@@ -37,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import com.polar.sdk.api.errors.PolarInvalidArgument
 import mobappdev.example.sensorapplication.ui.viewmodels.CombinedSensorData
 import mobappdev.example.sensorapplication.ui.viewmodels.DataUiState
 import mobappdev.example.sensorapplication.ui.viewmodels.DataVM
@@ -48,6 +56,12 @@ fun BluetoothDataScreen(
     val state = vm.state.collectAsStateWithLifecycle().value
     val deviceId = vm.deviceId.collectAsStateWithLifecycle().value
     val angle = vm.angleDataFlowPolar.collectAsState().value
+    val stateConnection = vm.stateConnection.collectAsState().value
+    val isAcc = vm.isAcc.collectAsState().value
+    val isAccNGyro = vm.isAccNGyro.collectAsState().value
+    var errorMessage by remember { mutableStateOf<String?>(null)}
+    var isFailed = vm.isFailed.collectAsState().value
+
 
     Column(
         modifier = Modifier
@@ -57,41 +71,45 @@ fun BluetoothDataScreen(
         horizontalAlignment = CenterHorizontally
     ) {
         Text("Bluetooth")
-        Text(text = if (state.connected) "connected to $deviceId" else "disconnected")
+        Text(text = if (stateConnection.connected) "connected to $deviceId" else if (stateConnection.connecting) "Connecting to $deviceId" else "disconnected")
+
+        if (isFailed) {
+            errorMessage?.let { errorMsg ->
+                Snackbar(
+                    action = {
+                        Button(onClick = {
+                            "BT required too much time to connect. Please control that your BT and sensor are on"
+
+                        }) {
+                            Text("Dismiss")
+                        }
+                    }
+                ) {
+                    Text(errorMsg)
+                }
+            }
+        }
+
+        //Text(text = if (polar) "connected to $deviceId" else "disconnected")
         Box(
             contentAlignment = Center,
             modifier = Modifier.weight(1f)
         ) {
             Column() {
                 Text(
-                    text = if (state.measuring) "Acc: ${state.currentAcc?.first}, ${state.currentAcc?.second}, ${state.currentAcc?.third}" else "-",
+                    text = if (stateConnection.measuring && (isAcc || isAccNGyro) ) "Acc: ${state.currentAcc?.first}, ${state.currentAcc?.second}, ${state.currentAcc?.third}" else "",
                     fontSize = 54.sp, //if (value.length < 3) 128.sp else 54.sp,
                     color = Color.Black,
                 )
 
                 Text(
-                    text = if (state.measuring) "Gyro: ${state.currentGyro?.first}, ${state.currentGyro?.second}, ${state.currentGyro?.third}" else "-",
+                    text = if (stateConnection.measuring && isAccNGyro) "Gyro: ${state.currentGyro?.first}, ${state.currentGyro?.second}, ${state.currentGyro?.third}" else "",
                     fontSize = 54.sp,
                     color = Color.Black,
                 )
-                Text(text = "Angle: $angle")
+                Text(text = "Angle: ${String.format("%.2f", angle)}",
+                    style = MaterialTheme.typography.headlineSmall)
 
-                this@Column.AnimatedVisibility(
-                visible = (state.connecting),
-                enter = fadeIn(
-                    animationSpec = tween(
-                        300,
-                        easing = LinearOutSlowInEasing
-                    )
-                ),
-                exit = fadeOut(
-                    animationSpec = tween(
-                        300,
-                        easing = LinearOutSlowInEasing
-                    )
-                ),){
-                Text("Polar is connecting...")
-            }
 
         }}
         Row(
@@ -99,14 +117,31 @@ fun BluetoothDataScreen(
             horizontalArrangement = Arrangement.SpaceAround,
             modifier = Modifier.fillMaxWidth()
         ){
+
+
             Button(
-                onClick = if (!state.connected) vm::connectToSensor else vm::disconnectFromSensor,
-
-                colors = ButtonDefaults.buttonColors(MaterialTheme.colorScheme.primary)
-
+                onClick = {
+                    try {
+                        if (!stateConnection.connected) {
+                            vm.connectToSensor()
+                        } else {
+                            vm.disconnectFromSensor()
+                        }
+                    } catch (polarInvalidArgument: PolarInvalidArgument) {
+                        val attempt = if (stateConnection.connected) "disconnect" else "connect"
+                        val errorMsg = "Failed to $attempt. Reason $polarInvalidArgument "
+                        Log.e(TAG, errorMsg)
+                        errorMessage = errorMsg
+                    }
+                },
+                enabled = (!stateConnection.connecting),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    disabledContainerColor = Color.Gray)
             ) {
-                Text(text = if (!state.connected) {"Connect\n${deviceId}"} else {"Disconnect\n${deviceId}"})
+                Text(text = if (!stateConnection.connected) {"Connect\n${deviceId}"} else {"Disconnect\n${deviceId}"})
             }
+
 
         }
         Spacer(modifier = Modifier.height(10.dp))
@@ -116,18 +151,32 @@ fun BluetoothDataScreen(
             modifier = Modifier.fillMaxWidth()
         ){
             Button(
-                onClick = if (!state.measuring && state.connected) vm::startAccPolar else vm::stopDataStream,
-                enabled = (state.connected),
+                onClick = {
+                    if (!stateConnection.measuring && stateConnection.connected) {
+                        vm.startAccPolar()
+                        vm.setIsAcc(true)
+                    } else {
+                        vm.stopDataStream()
+                        vm.setIsAcc(false)
+                    }},
+                enabled = (stateConnection.connected && !isAccNGyro),
                 colors = ButtonDefaults.buttonColors(MaterialTheme.colorScheme.primary)
             ) {
-                Text(text = if (!state.measuring) {"Start\nAcc Stream"} else {"Stop\nAcc Stream"})
+                Text(text = if (!stateConnection.measuring) {"Start\nAcc Stream"} else {"Stop\nAcc Stream"})
             }
             Button(
-                onClick = if (!state.measuring && state.connected) vm::startGyroPolar else vm::stopDataStream,
-                enabled = (state.connected),
+                onClick = {
+                    if (!stateConnection.measuring && stateConnection.connected) {
+                        vm.startAccAndGyroStreaming()
+                        vm.setIsAccNGyro(true)
+                    } else {
+                        vm.stopAccAndGyroStreaming()
+                        vm.setIsAccNGyro(false)
+                    }},
+                enabled = (stateConnection.connected && !isAcc),
                 colors = ButtonDefaults.buttonColors(MaterialTheme.colorScheme.primary)
             ) {
-                Text(text = if (!state.measuring) {"Start\nGyro and Acc Stream"} else {"Stop\nGyro and Acc Stream"})
+                Text(text = if (!stateConnection.measuring) {"Start\nGyro and Acc Stream"} else {"Stop\nGyro and Acc Stream"})
             }
         }
 
@@ -138,7 +187,7 @@ fun BluetoothDataScreen(
         ){
             Button(
                 onClick = vm::writeCsvFile,
-                enabled = (state.measuring),
+                enabled = (!stateConnection.measuring),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     disabledContainerColor = Color.Gray

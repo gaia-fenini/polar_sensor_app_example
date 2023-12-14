@@ -8,6 +8,7 @@ package mobappdev.example.sensorapplication.ui.screens
  * Last modified: 2023-07-11
  */
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,6 +27,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Alignment.Companion.Center
 import androidx.compose.ui.Alignment.Companion.CenterHorizontally
@@ -38,6 +43,11 @@ import androidx.navigation.NavController
 import mobappdev.example.sensorapplication.domain.BluetoothDevice
 import mobappdev.example.sensorapplication.ui.viewmodels.CombinedSensorData
 import mobappdev.example.sensorapplication.ui.viewmodels.DataVM
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.ui.text.style.TextAlign
 
 @Composable
 fun HomeScreen(
@@ -46,6 +56,8 @@ fun HomeScreen(
 ) {
     val state = vm.state.collectAsStateWithLifecycle().value
     val deviceId = vm.deviceId.collectAsStateWithLifecycle().value
+    var bt by remember { mutableStateOf<Boolean>(false) }
+    var scanning by remember { mutableStateOf<Boolean>(false) }
 
     val value: String = when (val combinedSensorData = vm.combinedDataFlow.collectAsState().value) {
         is CombinedSensorData.GyroData -> {
@@ -57,6 +69,7 @@ fun HomeScreen(
             }
 
         }
+
         is CombinedSensorData.AccData -> {
             val triple = combinedSensorData.acc
             if (triple == null) {
@@ -65,7 +78,9 @@ fun HomeScreen(
                 String.format("%.1f, %.1f, %.1f", triple.first, triple.second, triple.third)
             }
 
-        }        else -> "-"
+        }
+
+        else -> "-"
     }
 
     Column(
@@ -75,86 +90,142 @@ fun HomeScreen(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = CenterHorizontally
     ) {
-        Text(text = "SENSOR APPLICATION")
+        Text(
+            text = "SENSOR APPLICATION",
+            style = MaterialTheme.typography.headlineMedium
+        )
+        Spacer(modifier = Modifier.height(18.dp))
+
+        Text(textAlign = TextAlign.Center,
+            text = "Measure the Range Of Movement of your shoulder!",
+            style = MaterialTheme.typography.headlineSmall
+        )
         Box(
             contentAlignment = Center,
             modifier = Modifier.weight(1f)
         ) {
-            Column {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = CenterHorizontally
+            ) {
+
+                    Box(
+                        contentAlignment = Center,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        this@Column.AnimatedVisibility(
+                            visible = (bt == true),
+                            enter = fadeIn(
+                                animationSpec = tween(
+                                    300,
+                                    easing = LinearOutSlowInEasing
+                                )
+                            ),
+                            exit = fadeOut(
+                                animationSpec = tween(
+                                    300,
+                                    easing = LinearOutSlowInEasing
+                                )
+                            ),
+
+                            ) {
+                        LazyColumn(modifier = Modifier) {
+                            item {
+                                Text(
+                                    text = "Paired devices",
+                                    style = MaterialTheme.typography.headlineMedium
+                                )
+
+                            }
+                            items(state.pairedDevices) {
+
+                                    device ->
+                                if (device.name != null && device.name.contains("Polar")) {
+                                    Text(text = device.name,
+                                        modifier = Modifier.clickable {
+                                            (vm::chooseSensor)(device.name.substring(12, 20));
+                                            navController.navigate("bluetooth")
+                                        })
+                                }
+
+
+                            }
+                            item {
+                                Text(
+                                    text = "Scanned devices",
+                                    style = MaterialTheme.typography.headlineMedium
+                                )
+
+                            }
+                            items(state.scannedDevices) { device ->
+                                if (device.name != null && device.name.contains("Polar")) {
+
+                                    Text(text = device.name,
+                                        modifier = Modifier.clickable {
+                                            (vm::chooseSensor)(device.name.substring(12, 20));
+                                            navController.navigate("bluetooth")
+                                        })
+
+                                }
+                            }
+                        }
+                    }
+                }
+
                 Text(
                     text = "Choose the sensor type:",
                     color = Color.Black,
                 )
 
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceAround,
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.SpaceAround,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Button(
+                    Button(modifier = Modifier.padding(8.dp),
                         onClick = { navController.navigate("Internal") },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primary,
                             disabledContainerColor = Color.Gray
                         )
                     ) {
-                        Text(text = "Internal")
+                        Text(text = "Use phone's sensors")
                     }
-                    Button(
-                        onClick = { (vm::startScan)() },
+                    Button(modifier = Modifier.padding(8.dp),
+                        onClick = {
+                            if (!scanning) {
+                            vm.startScan()
+                            bt = true
+                            scanning = true
+                            } else {
+                               vm.stopScan()
+                               scanning = false
+                            }
+                        },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primary,
                             disabledContainerColor = Color.Gray
                         )
                     ) {
-                        Text(text = "Polar")
+                        Text(text = if (!scanning) "Search BT sensor" else "Stop BT scan")
                     }
-                    Button(
+
+                    Button(onClick = { navController.navigate("store") })
+                    {Text("View History")}
+
+                    /*Button(
                         onClick = { (vm::stopScan)() },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primary,
                             disabledContainerColor = Color.Gray
                         )
                     ) {
-                        Text(text = "Stop scan")
-                    }
+                        Text(text = "Stop BT scan")
+                    }*/
 
-                }
-                Box(contentAlignment = Center,
-                    modifier = Modifier.weight(1f)){
-
-                    LazyColumn(modifier = Modifier){
-                        item{
-                            Text(text = "Paired devices")
-
-                        }
-                        items(state.pairedDevices){
-
-                                device->
-                            if (device.name!=null && device.name.contains("Polar")) {
-                                Text(text = device.name,
-                                    modifier = Modifier.clickable { (vm::chooseSensor)(device.name.substring(12,20));
-                                                 navController.navigate("bluetooth")
-                                    })
-                            }
-
-
-
-                        }
-                        item{
-                            Text(text = "scanned devices")
-
-                        }
-                        items(state.scannedDevices){
-                                device->
-                            if (device.name != null && device.name.contains("Polar")) {
-
-                                Text(text = device.name.substring(12,20),
-                                    modifier = Modifier.clickable{(vm::chooseSensor)(device.name.substring(12,20));
-                                        navController.navigate("bluetooth")})
-
-                            }}
-                    }
                 }
 
             }

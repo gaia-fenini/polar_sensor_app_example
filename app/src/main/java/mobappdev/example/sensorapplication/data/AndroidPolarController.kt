@@ -38,6 +38,7 @@ import java.util.UUID
 import kotlin.math.abs
 import kotlin.math.pow
 
+
 @SuppressLint("MissingPermission")
 
 class AndroidPolarController (
@@ -123,6 +124,8 @@ class AndroidPolarController (
     private fun hasPermission(permission: String): Boolean{
         return context.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
     }
+
+
     private val _currentAcc = MutableStateFlow<Triple<Int, Int, Int>?>(null)
 
     override val currentAcc: StateFlow<Triple<Int, Int, Int>?>
@@ -193,6 +196,7 @@ class AndroidPolarController (
                 Log.d(TAG, "CONNECTED: ${polarDeviceInfo.deviceId}")
                 _connected.update { true }
                 _connecting.update{false}
+
             }
 
             override fun deviceConnecting(polarDeviceInfo: PolarDeviceInfo) {
@@ -203,6 +207,8 @@ class AndroidPolarController (
             override fun deviceDisconnected(polarDeviceInfo: PolarDeviceInfo) {
                 Log.d(TAG, "DISCONNECTED: ${polarDeviceInfo.deviceId}")
                 _connected.update { false }
+                _connecting.update{false}
+
             }
 
             override fun disInformationReceived(identifier: String, uuid: UUID, value: String) {
@@ -210,6 +216,9 @@ class AndroidPolarController (
             }
         })
     }
+
+
+
 
     override fun connectToDevice(deviceId: String) {
         _connecting.update{true}
@@ -232,18 +241,18 @@ class AndroidPolarController (
     fun computeAngle() {
         if(_currentAcc!=null && _angleList!=null){
             _currentAngle.update {
-                90 - kotlin.math.atan( _currentAcc.value!!.third.toDouble().pow(2.0)/
+                90 - kotlin.math.atan( (_currentAcc.value!!.second.toDouble()*9.81/1000).pow(2.0)/
                     kotlin.math.sqrt(
-                _currentAcc.value!!.second.toDouble().pow(2.0)
-                        + _currentAcc.value!!.first.toDouble().pow(2.0)
+                        (_currentAcc.value!!.first.toDouble()*9.81/1000).pow(2.0)
+                        + (_currentAcc.value!!.third.toDouble()*9.81/1000).pow(2.0)
             ))* 180 / kotlin.math.PI}
             if(_angleList.value.isNotEmpty()){
-                val newelem = 0.9 * _currentAngle.value!! + 0.1 * _angleList.value[lastIndex]
+                val newelem = 0.9 * _currentAngle.value!! + 0.1 * (_angleList.value[lastIndex])
                 _currentAngle.update{newelem}
                 _angleList.value = _angleList.value + newelem
             }
             else{
-                _angleList.value = angleList.value + 0.9 * _currentAngle.value!!
+                _angleList.value = angleList.value + _currentAngle.value!!
             }
              Log.d("Test","angle: ${currentAngle.value}" )
         }
@@ -252,20 +261,28 @@ class AndroidPolarController (
 
     fun computeAngleGyro(){
         if(_currentAcc!=null && _previousGyroAngle!=null){
+            if(900f<_currentAcc.value!!.second && _currentAcc.value!!.second<1100f){
+                _currentGyroAngle = 0f
+                _previousGyroAngle = _currentGyroAngle
+                _currentAngle.update{0.0}
+                _angleList.value = _angleList.value!! + _currentAngle.value!!
+            }
+            else{
             val fromAcc = 90 - kotlin.math.atan(
-                _currentAcc.value!!.second.toDouble().pow(2.0) / kotlin.math.sqrt(
-                    _currentAcc.value!!.first.toDouble().pow(2.0)
-                            + _currentAcc.value!!.third.toDouble().pow(2.0)
+                (_currentAcc.value!!.second.toDouble()*9.81/1000).pow(2.0) / kotlin.math.sqrt(
+                    (_currentAcc.value!!.first.toDouble()*9.81/1000).pow(2.0)
+                            + (_currentAcc.value!!.third.toDouble()*9.81/1000).pow(2.0)
                 )
             ) * 180 / kotlin.math.PI
-            _currentGyroAngle = _previousGyroAngle!! + _currentGyro.value!!.second * 0.5f - _gyrozero.value
+            _currentGyroAngle = _previousGyroAngle!! + _currentGyro.value!!.first * 0.5f
+                val fromGyro = _currentGyroAngle!!
             _currentAngle.update {
-                (0.9 * fromAcc + 0.1 * abs(_currentGyroAngle!!))
+                (0.99 * fromAcc + 0.01 * abs(fromGyro))
             }
             _previousGyroAngle = _currentGyroAngle
             Log.d("Test","${_currentGyroAngle}")
             _angleList.value = angleList.value + _currentAngle.value!!
-        }       else{Log.d("Test", "acc null")}
+        }  }     else{Log.d("Test", "acc null")}
     }
 
     override fun startAccStreaming(deviceId: String) {
@@ -346,6 +363,7 @@ class AndroidPolarController (
                                     Log.d(TAG, "Updated Gyro List: $updatedList")
                                     updatedList
                                 }
+                                computeAngleGyro()
                             }
 
                         },
@@ -363,13 +381,13 @@ class AndroidPolarController (
     override fun stopAccStreaming() {
         _measuring.update { false }
         accDisposable?.dispose()
-        _currentAcc.update { null }
+        //_currentAcc.update { null }
     }
 
     override fun stopGyroStreaming() {
         _measuring.update { false }
         gyroDisposable?.dispose()
-        _currentGyro.update { null }
+        //_currentGyro.update { null }
     }
 
 }

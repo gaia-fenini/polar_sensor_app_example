@@ -38,6 +38,7 @@ import io.reactivex.rxjava3.core.Single
 import mobappdev.example.sensorapplication.ui.screens.BluetoothDataScreen
 import mobappdev.example.sensorapplication.ui.screens.HomeScreen
 import mobappdev.example.sensorapplication.ui.screens.InternalDataScreen
+import mobappdev.example.sensorapplication.ui.screens.Store
 import mobappdev.example.sensorapplication.ui.theme.SensorapplicationTheme
 import mobappdev.example.sensorapplication.ui.viewmodels.DataVM
 
@@ -147,7 +148,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-    }
+     }
 
 }
 
@@ -166,6 +167,9 @@ fun Myapp(dataViewModel: DataVM){
         }
         composable("internal"){
             InternalDataScreen(vm = dataViewModel, navController = navController)
+        }
+        composable("store"){
+            Store(vm = dataViewModel, navController = navController)
         }
     }
 }
