@@ -143,44 +143,54 @@ fun InternalDataScreen(
             }*/
 
             //RealTimeGraph(vm = vm)
-            if (!accStream && !accGyroStream && angleList.value!!.isNotEmpty()) {
-                AndroidView(
-                    modifier = Modifier.fillMaxSize(),
-                    factory = { context ->
-                        val chart = LineChart(context)  // Initialise the chart
-                        val entries: List<Entry> =
-                            angleList.value!!.indices.map { it.toFloat() }
-                                .zip(angleList.value!!.map { it.toFloat() }) { x, y ->
-                                    Entry(
-                                        x, y
-                                    )
-                                }  // Convert the x and y data into entries
-                        Log.d("Test","entries: $entries")
-                        val dataSet = LineDataSet(entries, "label").apply {
-                        }  // Create a dataset of entries
-                        dataSet.addEntry(entries[entries.lastIndex])
-                        val linedata = LineData(dataSet).apply {
-                            setDrawValues(true)
-                            isHighlightEnabled = true
-                            setValueTypeface(Typeface.DEFAULT_BOLD)
-                            setValueTextSize(0f)
-                        }  // Pass the dataset to the chart
-                        // Enable touch gestures
-                        chart.data = linedata
-                        chart.setTouchEnabled(true)
-                        chart.isDragEnabled = true
-                        chart.isScaleXEnabled = true
-                        chart.isScaleYEnabled = false
-                        // Refresh and return the chart
-                        dataSet.notifyDataSetChanged()
-                        linedata.notifyDataChanged()
-                        chart.notifyDataSetChanged()
-                        chart.animateXY(3000, 3000);
-                        chart.invalidate()
-                        chart
-                    }
-                )
-            }
+            //if (!accStream && !accGyroStream && angleList.value!!.isNotEmpty()) {
+                for (value in angleList.value!!) {
+                    AndroidView(
+                        modifier = Modifier.fillMaxSize(),
+                        factory = { context ->
+                            val chart = LineChart(context)  // Initialise the chart
+                            val white = Color.White.hashCode()
+                            chart.setBackgroundColor(white)
+                            val entries: List<Entry> =
+                                angleList.value!!.indices.map { it.toFloat() }
+                                    .zip(angleList.value!!.map { it.toFloat() }) { x, y ->
+                                        Entry(x, y)
+                                    }  // Convert the x and y data into entries
+                            Log.d("Test", "entries: $entries")
+                            val dataSet = LineDataSet(entries, "label").apply {
+                            }  // Create a dataset of entries
+                            dataSet.addEntry(entries[entries.lastIndex])
+                            val linedata = LineData(dataSet).apply {
+                                setDrawValues(true)
+                                isHighlightEnabled = true
+                                setValueTypeface(Typeface.DEFAULT_BOLD)
+                                setValueTextSize(0f)
+                            }  // Pass the dataset to the chart
+                            // Enable touch gestures
+                            chart.data = linedata
+                            chart.setTouchEnabled(true)
+                            chart.isDragEnabled = true
+                            chart.isScaleXEnabled = true
+                            chart.isScaleYEnabled = false
+                            // Refresh and return the chart
+                            val yAxis = chart.axisLeft
+                            yAxis.axisMaximum = 100f
+                            yAxis.axisMinimum = 0f
+
+                            val rightAxis = chart.axisRight
+                            rightAxis.isEnabled = false
+                            chart.description.isEnabled = false
+
+                            dataSet.notifyDataSetChanged()
+                            linedata.notifyDataChanged()
+                            chart.notifyDataSetChanged()
+                            //chart.animateXY(3000, 3000);
+                            chart.invalidate()
+                            chart
+                        }
+                    )
+                }
+            //}
 
 
         }
