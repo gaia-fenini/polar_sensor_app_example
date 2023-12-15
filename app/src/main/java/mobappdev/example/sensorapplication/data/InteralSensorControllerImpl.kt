@@ -213,7 +213,7 @@ class InternalSensorControllerImpl(
                 ) * 180 / kotlin.math.PI
             }
             Log.d("Test","${_currentAngleUI.value}")
-
+            //_currentAngleUI.update { (String.format("%.2f", _currentAngleUI.value.toString())).toDouble() }
             if (_angles.value.isNotEmpty())
             {Log.d("Test","${lastIndex}")
                 val newelem = 0.9 * _currentAngleUI.value!! +  0.1 * (_angles.value[lastIndex])
